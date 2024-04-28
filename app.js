@@ -21,7 +21,7 @@ const pool = mysql.createPool({
     user: 'root',
     password: '',
     database: 'time_management'
-})
+}) 
 
 
 //=================== Teacher API =====================//

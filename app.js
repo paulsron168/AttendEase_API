@@ -23,6 +23,44 @@ const pool = mysql.createPool({
     database: 'time_management'
 }) 
 
+//=================== LOGIN API =====================//
+
+app.post('/login', (req, res) => {
+
+    const username = req.body.username;
+    const password = req.body.password;
+    console.log(username);
+    console.log(password);
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            return res.status(500).send('Internal server error');
+        }
+
+        console.log(`LOGIN as [connectionID=${connection.threadId}]`);
+
+        connection.query('SELECT * FROM users WHERE username = ? AND password = ?', [username,password], (err, result) => {
+            connection.release();
+
+            if (err) {
+                console.error('Error executing MySQL query: ', err);
+                return res.status(500).json('Error logging in');
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json(`LOGIN data not found`);
+            }
+            console.log(`LOGIN SUCCESS [connectionID=${connection.threadId}]`);
+
+            console.log(err);
+            console.log(result);
+            return res.send(result)
+        });
+    });
+});
+
+
 
 //=================== Teacher API =====================//
 

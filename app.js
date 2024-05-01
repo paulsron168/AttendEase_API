@@ -21,7 +21,45 @@ const pool = mysql.createPool({
     user: 'root',
     password: '',
     database: 'time_management'
-})
+}) 
+
+//=================== LOGIN API =====================//
+
+app.post('/login', (req, res) => {
+
+    const username = req.body.username;
+    const password = req.body.password;
+    console.log(username);
+    console.log(password);
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            return res.status(500).send('Internal server error');
+        }
+
+        console.log(`LOGIN as [connectionID=${connection.threadId}]`);
+
+        connection.query('SELECT * FROM users WHERE username = ? AND password = ?', [username,password], (err, result) => {
+            connection.release();
+
+            if (err) {
+                console.error('Error executing MySQL query: ', err);
+                return res.status(500).json('Error logging in');
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json(`LOGIN data not found`);
+            }
+            console.log(`LOGIN SUCCESS [connectionID=${connection.threadId}]`);
+
+            console.log(err);
+            console.log(result);
+            return res.send(result)
+        });
+    });
+});
+
 
 
 //=================== Teacher API =====================//
@@ -30,9 +68,9 @@ const pool = mysql.createPool({
 app.get('/teacher', (_, res) => { // Change req to _
     pool.getConnection((err, connection) => {
         if (err) throw err
-        console.log(`connected as TeacherID_Number ${connection.threadId}`)
+        console.log(`Get List of Teachers [connectionID=${connection.threadId}]`)
 
-        connection.query('SELECT * from teacher', (err, rows) => {
+        connection.query('SELECT * from users where user_type="teacher"', (err, rows) => {
             connection.release() // return the connection to pool
 
             if (!err) {
@@ -47,8 +85,8 @@ app.get('/teacher', (_, res) => { // Change req to _
 
 
 //Delete Teacher
-app.delete('/teacher/:ID', (req, res) => {
-    const ID = req.params.ID;
+app.delete('/delete_teacher/:id', (req, res) => {
+    const id = req.params.id;
 
     pool.getConnection((err, connection) => {
         if (err) {
@@ -58,7 +96,7 @@ app.delete('/teacher/:ID', (req, res) => {
 
         console.log(`Connected as thread ID ${connection.threadId}`);
 
-        connection.query('DELETE FROM teacher WHERE ID = ?', [ID], (err, result) => {
+        connection.query('DELETE FROM users WHERE id = ?', [id], (err, result) => {
             connection.release();
 
             if (err) {
@@ -67,18 +105,18 @@ app.delete('/teacher/:ID', (req, res) => {
             }
 
             if (result.affectedRows === 0) {
-                return res.status(404).json(`Teacher with ID ${ID} not found`);
+                return res.status(404).json(`Teacher with id ${id} not found`);
             }
 
-            return res.status(200).json(`Teacher with ID ${ID} has been deleted`);
+            return res.status(200).json(`Teacher with id ${id} has been deleted`);
         });
     });
 });
 
 
 // Update teacher
-app.put('/teacher/:TeacherID_Number', (req, res) => {
-    const TeacherID_Number = req.params.TeacherID_Number;
+app.put('/update_teacher/:id', (req, res) => {
+    const id = req.params.id;
     const updatedTeacher = req.body;
 
     pool.getConnection((err, connection) => {
@@ -90,21 +128,21 @@ app.put('/teacher/:TeacherID_Number', (req, res) => {
 
         console.log(`Connected as thread ID ${connection.threadId}`);
 
-        connection.query('UPDATE teacher SET ? WHERE TeacherID_Number = ?', [updatedTeacher, TeacherID_Number], (err, result) => {
+        connection.query('UPDATE users SET ? WHERE id = ?', [updatedTeacher, id], (err, result) => {
             connection.release();
 
             if (result.affectedRows === 0) {
-                return res.status(404).json(`Teacher with TeacherID_Number ${TeacherID_Number} not found`);
+                return res.status(404).json(`Teacher with id ${id} not found`);
             }
 
-            return res.status(200).json(`Teacher with TeacherID_Number ${TeacherID_Number} has been deleted`);
+            return res.status(200).json(`Teacher with id ${id} has been deleted`);
         });
     });
 });
 
  
 // Add Teacher
-app.post('/addteacher', (req, res) => {
+app.post('/add_teacher', (req, res) => {
     pool.getConnection((err, connection) => {
         if (err) {
             console.error('Error getting MySQL connection: ', err);
@@ -112,10 +150,10 @@ app.post('/addteacher', (req, res) => {
             return;
         }
 
-        console.log(`Connected as thread ID ${connection.threadId}`);
+        console.log(`Add Teacher [connectionID=${connection.threadId}]`);
         const params = req.body;
 
-        connection.query('INSERT INTO teacher SET ?', params, (err, result) => {
+        connection.query('INSERT INTO users SET user_type="teacher",?', params, (err, result) => {
             connection.release();
 
             if (err) {
@@ -124,10 +162,91 @@ app.post('/addteacher', (req, res) => {
                 return;
             }
 
-            res.status(201).json(`{ message: Teacher with the name: ${params.First_Name} has been added. }`);
+            res.status(201).json(`{ message: Teacher with the name: ${params.firstname} has been added. }`);
         });
     });
 });
+
+//=================== SECTION API =====================//
+
+// Get all section
+app.get('/section', (_, res) => { // Change req to _
+    pool.getConnection((err, connection) => {
+        if (err) throw err
+        console.log(`Get List of Section [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT * from section', (err, rows) => {
+            connection.release() // return the connection to pool
+
+            if (!err) {
+                res.send(rows)
+            } else {
+                console.log(err)
+            }
+
+        })
+    })
+});
+
+// Get all section
+app.get('/get_subject', (_, res) => { // Change req to _
+    pool.getConnection((err, connection) => {
+        if (err) throw err
+        console.log(`Get List of Subject [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT * from subject', (err, rows) => {
+            connection.release() // return the connection to pool
+
+            if (!err) {
+                res.send(rows)
+            } else {
+                console.log(err)
+            }
+
+        })
+    })
+});
+
+//=================== COUNT STUDENT AND TEACHERS API =====================//
+
+// Get count total students
+app.get('/count_student', (_, res) => { // Change req to _
+    pool.getConnection((err, connection) => {
+        if (err) throw err
+        console.log(`Get Count of Students [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT count(*) as count from users where user_type="student"', (err, rows) => {
+            connection.release() // return the connection to pool
+
+            if (!err) {
+                res.send(rows)
+            } else {
+                console.log(err)
+            }
+
+        })
+    })
+});
+
+// Get count total teacher
+app.get('/count_teacher', (_, res) => { // Change req to _
+    pool.getConnection((err, connection) => {
+        if (err) throw err
+        console.log(`Get Count of Teacher [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT count(*) as count from users where user_type="teacher"', (err, rows) => {
+            connection.release() // return the connection to pool
+
+            if (!err) {
+                res.send(rows)
+            } else {
+                console.log(err)
+            }
+
+        })
+    })
+});
+
 
 
 //=================== Student API =====================//
@@ -136,9 +255,9 @@ app.post('/addteacher', (req, res) => {
 app.get('/student', (_, res) => { // Change req to _
     pool.getConnection((err, connection) => {
         if (err) throw err
-        console.log(`connected as StudentID_Number ${connection.threadId}`)
+        console.log(`Get List of Students [connectionID=${connection.threadId}]`)
 
-        connection.query('SELECT * from student', (err, rows) => {
+        connection.query('SELECT * from v_users_student_section where user_type="student"', (err, rows) => {
             connection.release() // return the connection to pool
 
             if (!err) {
@@ -153,8 +272,8 @@ app.get('/student', (_, res) => { // Change req to _
 
 
 //Delete Student
-app.delete('/student/:ID', (req, res) => {
-    const ID = req.params.ID;
+app.delete('/delete_student/:id', (req, res) => {
+    const id = req.params.id;
 
     pool.getConnection((err, connection) => {
         if (err) {
@@ -164,7 +283,7 @@ app.delete('/student/:ID', (req, res) => {
 
         console.log(`Connected as thread ID ${connection.threadId}`);
 
-        connection.query('DELETE FROM student WHERE ID = ?', [ID], (err, result) => {
+        connection.query('DELETE FROM users WHERE id = ?', [id], (err, result) => {
             connection.release();
 
             if (err) {
@@ -173,18 +292,18 @@ app.delete('/student/:ID', (req, res) => {
             }
 
             if (result.affectedRows === 0) {
-                return res.status(404).json(`Student with ID ${ID} not found`);
+                return res.status(404).json(`Student with ID ${id} not found`);
             }
 
-            return res.status(200).json(`Student with ID ${ID} has been deleted`);
+            return res.status(200).json(`Student with ID ${id} has been deleted`);
         });
     });
 });
 
 
 // Update student
-app.put('/student/:StudentID_Number', (req, res) => {
-    const StudentID_Number = req.params.StudentID_Number;
+app.put('/update_student/:id', (req, res) => {
+    const id = req.params.id;
     const updatedStudent = req.body;
 
     pool.getConnection((err, connection) => {
@@ -196,21 +315,21 @@ app.put('/student/:StudentID_Number', (req, res) => {
 
         console.log(`Connected as thread ID ${connection.threadId}`);
 
-        connection.query('UPDATE student SET ? WHERE StudentID_Number = ?', [updatedStudent, StudentID_Number], (err, result) => {
+        connection.query('UPDATE users SET ? WHERE id = ?', [updatedStudent, id], (err, result) => {
             connection.release();
 
             if (result.affectedRows === 0) {
-                return res.status(404).json(`Student with StudentID_Number ${StudentID_Number} not found`);
+                return res.status(404).json(`Student with id ${id} not found`);
             }
 
-            return res.status(200).json(`Student with StudentID_Number ${StudentID_Number} has been deleted`);
+            return res.status(200).json(`Student with id ${id} has been deleted`);
         });
     });
 });
 
  
 // Add Student
-app.post('/addstudent', (req, res) => {
+app.post('/add_student', (req, res) => {
     pool.getConnection((err, connection) => {
         if (err) {
             console.error('Error getting MySQL connection: ', err);
@@ -221,7 +340,7 @@ app.post('/addstudent', (req, res) => {
         console.log(`Connected as thread ID ${connection.threadId}`);
         const params = req.body;
 
-        connection.query('INSERT INTO student SET ?', params, (err, result) => {
+        connection.query('INSERT INTO users SET user_type="student",?', params, (err, result) => {
             connection.release();
 
             if (err) {
@@ -230,7 +349,7 @@ app.post('/addstudent', (req, res) => {
                 return;
             }
 
-            res.status(201).json(`{ message: Student with the name: ${params.First_Name} has been added. }`);
+            res.status(201).json(`{ message: Student with the name: ${params.firstname} has been added. }`);
         });
     });
 });
@@ -403,12 +522,12 @@ function formatTime(time) {
 
 
 // Get All Class Schedule
-app.get('/classschedule', (_, res) => {
+app.get('/class_schedule', (_, res) => {
     pool.getConnection((err, connection) => {
         if (err) throw err;
-        console.log(`connected as class_ID ${connection.threadId}`);
+        console.log(`get class_schedule [connectionID=${connection.threadId}]`);
 
-        connection.query('SELECT *, GROUP_CONCAT(class_Day) AS class_Day FROM classschedule GROUP BY class_ID', (err, rows) => {
+        connection.query('SELECT * FROM v_schedule_subject_section', (err, rows) => {
             connection.release(); // return the connection to the pool
 
             if (!err) {
@@ -421,13 +540,15 @@ app.get('/classschedule', (_, res) => {
                     };
 
                     // Trim and split the class_Day string to an array
-                    const class_Days = row.class_Day.split(',').map(day => day.trim());
+                    const class_days = row.class_days.split(',').map(day => day.trim());
 
                     const formattedData = {
                         ...row,
-                        class_Day: class_Days, // Assign the trimmed and split array
-                        class_Start: formatTime(row.class_Start),
-                        class_End: formatTime(row.class_End)
+                        class_days: class_days, // Assign the trimmed and split array
+                        class_start: formatTime(row.class_start),
+                        class_end: formatTime(row.class_end),
+                        class_section: row.class_section_id,
+                        class_subject: row.class_subject_id,
                     };
 
                     return formattedData;
@@ -444,7 +565,7 @@ app.get('/classschedule', (_, res) => {
 
 
 // Add Class Schedule
-app.post('/addclassschedule', (req, res) => {
+app.post('/add_schedule', (req, res) => {
     pool.getConnection((err, connection) => {
         if (err) {
             console.error('Error getting MySQL connection: ', err);
@@ -452,25 +573,25 @@ app.post('/addclassschedule', (req, res) => {
             return;
         }
 
-        console.log(`Connected as thread ID ${connection.threadId}`);
+        console.log(`Add Schedule [connectionID=${connection.threadId}]`);
         const subjectData = req.body;
 
-        if (!subjectData.class_Day || !Array.isArray(subjectData.class_Day) || subjectData.class_Day.length === 0) {
-            res.status(400).json({ error: 'No class schedule provided or invalid format.' });
-            return;
-        }
+        // if (!subjectData.class_days || !Array.isArray(subjectData.class_days) || subjectData.class_days.length === 0) {
+        //     res.status(400).json({ error: 'No class schedule provided or invalid format.' });
+        //     return;
+        // }
 
         // Ensure class_Start and class_End are in HH:mm:ss format
-        const classschedule = {
-            class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
-            class_ID: subjectData.class_ID,
-            class_Start: formatTime(subjectData.class_Start),
-            class_End: formatTime(subjectData.class_End),
-            class_Section: subjectData.class_Section,
-            room: subjectData.room,
-        };
+        // const classschedule = {
+        //     class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
+        //     class_ID: subjectData.class_ID,
+        //     class_Start: formatTime(subjectData.class_Start),
+        //     class_End: formatTime(subjectData.class_End),
+        //     class_Section: subjectData.class_Section,
+        //     room: subjectData.room,
+        // };
 
-        connection.query('INSERT INTO classschedule SET ?', classschedule, (err, result) => {
+        connection.query('INSERT INTO schedule SET ?', subjectData, (err, result) => {
             connection.release();
             if (err) {
                 console.error('Error executing MySQL query: ', err);
@@ -483,10 +604,8 @@ app.post('/addclassschedule', (req, res) => {
 });
 
 
-
 // Update Class Schedule
-// Update Class Schedule
-app.put('/classschedule/:ID', (req, res) => {
+app.put('/update_schedule/:id', (req, res) => {
     pool.getConnection((err, connection) => {
         if (err) {
             console.error('Error getting MySQL connection: ', err);
@@ -494,27 +613,27 @@ app.put('/classschedule/:ID', (req, res) => {
             return;
         }
 
-        console.log(`Connected as thread ID ${connection.threadId}`);
-        const ID = req.params.ID; // Extract ID from route parameters
+        console.log(`UPDATE Schedule [connectionID=${connection.threadId}]`);
+        const id = req.params.id; // Extract ID from route parameters
         const subjectData = req.body;
 
-        if (!subjectData.class_Day || !Array.isArray(subjectData.class_Day) || subjectData.class_Day.length === 0) {
-            res.status(400).json({ error: 'No class schedule provided or invalid format.' });
-            return;
-        }
+        // if (!subjectData.class_Day || !Array.isArray(subjectData.class_Day) || subjectData.class_Day.length === 0) {
+        //     res.status(400).json({ error: 'No class schedule provided or invalid format.' });
+        //     return;
+        // }
 
 
-        //Ensure class_Start and class_End are in HH:mm:ss format
-        const classschedule = {
-            class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
-            class_ID: subjectData.class_ID,
-            class_Start: formatTime(subjectData.class_Start),
-            class_End: formatTime(subjectData.class_End),
-            class_Section: subjectData.class_Section,
-            room: subjectData.room,
-        };
+        // //Ensure class_Start and class_End are in HH:mm:ss format
+        // const classschedule = {
+        //     class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
+        //     class_ID: subjectData.class_ID,
+        //     class_Start: formatTime(subjectData.class_Start),
+        //     class_End: formatTime(subjectData.class_End),
+        //     class_Section: subjectData.class_Section,
+        //     room: subjectData.room,
+        // };
 
-        connection.query('UPDATE classschedule SET ? WHERE ID = ?', [classschedule, ID], (err, result) => {
+        connection.query('UPDATE schedule SET ? WHERE id = ?', [subjectData, id], (err, result) => {
             connection.release();
             if (err) {
                 console.error('Error executing MySQL query: ', err);
@@ -532,8 +651,8 @@ app.put('/classschedule/:ID', (req, res) => {
 
 
 //Delete Class Schedule
-app.delete('/classSchedule/:class_ID', (req, res) => {
-    const class_ID = req.params.class_ID;
+app.delete('/delete_schedule/:id', (req, res) => {
+    const id = req.params.id;
 
     pool.getConnection((err, connection) => {
         if (err) {
@@ -541,21 +660,21 @@ app.delete('/classSchedule/:class_ID', (req, res) => {
             return res.status(500).send('Internal server error');
         }
 
-        console.log(`Connected as thread ID ${connection.threadId}`);
+        console.log(`Delete Schedule [connectionID=${connection.threadId}]`);
 
-        connection.query('DELETE FROM classSchedule WHERE class_ID = ?', [class_ID], (err, result) => {
+        connection.query('DELETE FROM schedule WHERE id = ?', [id], (err, result) => {
             connection.release();
 
             if (err) {
                 console.error('Error executing MySQL query: ', err);
-                return res.status(500).json('Error deleting classSchedule');
+                return res.status(500).json('Error deleting schedule');
             }
 
             if (result.affectedRows === 0) {
-                return res.status(404).json(`classSchedule with ID ${class_ID} not found`);
+                return res.status(404).json(`schedule with ID ${id} not found`);
             }
 
-            return res.status(200).json(`classSchedule with ID ${class_ID} has been deleted`);
+            return res.status(200).json(`schedule with ID ${id} has been deleted`);
         });
     });
 });

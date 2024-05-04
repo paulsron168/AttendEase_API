@@ -560,7 +560,6 @@ app.post('/login', (req, res) => {
         });
     });
 
-
     // Add Class Schedule
     app.post('/add_schedule', (req, res) => {
         pool.getConnection((err, connection) => {
@@ -672,6 +671,125 @@ app.post('/login', (req, res) => {
                 }
 
                 return res.status(200).json(`schedule with ID ${id} has been deleted`);
+            });
+        });
+    });
+
+
+//-------------- Roster Schedule API ------------------//
+    
+    // Get All Roster Schedule
+    app.get('/rostered', (_, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) throw err;
+            console.log(`get roster [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_schedule', (err, rows) => {
+                connection.release(); // return the connection to the pool
+
+                if (!err) {
+                    res.send(rows);
+                } else {
+                    res.status(500).send('Error fetching class roster');
+                }
+            });
+        });
+    });
+
+    // Get All Schedule for ROSTER
+    app.get('/schedule_roster', (_, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) throw err;
+            console.log(`get schedule for roster [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_schedule_for_roster', (err, rows) => {
+                connection.release(); // return the connection to the pool
+
+                if (!err) {
+                    res.send(rows);
+                } else {
+                    res.status(500).send('Error fetching class v_schedule_for_roster');
+                }
+            });
+        });
+    });
+
+    app.post('/add_roster', (req, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).send('Internal server error');
+                return;
+            }
+
+            console.log(`Add Roster [connectionID=${connection.threadId}]`);
+            const params = req.body;
+
+            connection.query('INSERT INTO roster SET ?', params, (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    res.status(500).send('Error adding teacher');
+                    return;
+                }
+
+                res.status(201).json(`{ message: Roster has been added. }`);
+            });
+        });
+    });
+
+     // Update ROSTER
+     app.put('/update_roster/:id', (req, res) => {
+        const id = req.params.id;
+        const updatedRoster = req.body;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).json('Internal server error');
+                return;
+            }
+
+            console.log(`UPDATE ROSTER [connectionID=${connection.threadId}]`);
+
+            connection.query('UPDATE roster SET ? WHERE id = ?', [updatedRoster, id], (err, result) => {
+                connection.release();
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Roster with id ${id} not found`);
+                }
+
+                return res.status(200).json(`Roster with id ${id} has been updated`);
+            });
+        });
+    });
+
+    //Delete Roster
+    app.delete('/delete_roster/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`DELETE ROSTER [connectionID=${connection.threadId}]`);
+
+            connection.query('DELETE FROM roster WHERE id = ?', [id], (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Roster with id ${id} not found`);
+                }
+
+                return res.status(200).json(`Roster with id ${id} has been deleted`);
             });
         });
     });

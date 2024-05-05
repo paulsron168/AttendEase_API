@@ -165,6 +165,31 @@ app.post('/login', (req, res) => {
         });
     });
 
+    // Get all teacher class
+     app.post('/teacher_class/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).json('Internal server error');
+                return;
+            }
+
+            console.log(`GET TEACHER CLASS = thread ID ${connection.threadId}`);
+
+            connection.query('SELECT * FROM v_rostered_schedule WHERE teacher_id = ?', [id], (err, result) => {
+                connection.release();
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Teacher Roster with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
 //=================== SECTION API =====================//
 
     // Get all section
@@ -794,6 +819,109 @@ app.post('/login', (req, res) => {
         });
     });
 
+    app.post('/add_roster_pin', (req, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).send('Internal server error');
+                return;
+            }
+
+            console.log(`Add Roster PIN [connectionID=${connection.threadId}]`);
+            const params = req.body;
+
+            connection.query('INSERT INTO roster_pin SET ?', params, (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    res.status(500).send('Error adding teacher');
+                    return;
+                }
+
+                res.send(result);
+            });
+        });
+    });
+
+    app.post('/roster_pin_alerts_per_section/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET roster_pin_alerts_per_section [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE roster_pin_id=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Roster PIN alerts with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/students_per_section/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET students_per_section [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM users WHERE student_class_section=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Students Per Section with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/add_roster_pin_alerts', (req, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).send('Internal server error');
+                return;
+            }
+
+            console.log(`Add Roster PIN [connectionID=${connection.threadId}]`);
+            const params = req.body;
+
+            connection.query('INSERT INTO roster_pin_alerts SET ?', params, (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    res.status(500).send('Error adding teacher');
+                    return;
+                }
+
+                res.status(201).json(`{ message: Roster Pin Alerts has been added. }`);
+            });
+        });
+    });
 
 //-------------- Upload Images API ------------------//
 

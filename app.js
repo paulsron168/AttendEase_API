@@ -597,21 +597,6 @@ app.post('/login', (req, res) => {
             console.log(`Add Schedule [connectionID=${connection.threadId}]`);
             const subjectData = req.body;
 
-            // if (!subjectData.class_days || !Array.isArray(subjectData.class_days) || subjectData.class_days.length === 0) {
-            //     res.status(400).json({ error: 'No class schedule provided or invalid format.' });
-            //     return;
-            // }
-
-            // Ensure class_Start and class_End are in HH:mm:ss format
-            // const classschedule = {
-            //     class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
-            //     class_ID: subjectData.class_ID,
-            //     class_Start: formatTime(subjectData.class_Start),
-            //     class_End: formatTime(subjectData.class_End),
-            //     class_Section: subjectData.class_Section,
-            //     room: subjectData.room,
-            // };
-
             connection.query('INSERT INTO schedule SET ?', subjectData, (err, result) => {
                 connection.release();
                 if (err) {
@@ -637,22 +622,6 @@ app.post('/login', (req, res) => {
             console.log(`UPDATE Schedule [connectionID=${connection.threadId}]`);
             const id = req.params.id; // Extract ID from route parameters
             const subjectData = req.body;
-
-            // if (!subjectData.class_Day || !Array.isArray(subjectData.class_Day) || subjectData.class_Day.length === 0) {
-            //     res.status(400).json({ error: 'No class schedule provided or invalid format.' });
-            //     return;
-            // }
-
-
-            // //Ensure class_Start and class_End are in HH:mm:ss format
-            // const classschedule = {
-            //     class_Day: subjectData.class_Day.join(', '), // Join all academic levels into a single string
-            //     class_ID: subjectData.class_ID,
-            //     class_Start: formatTime(subjectData.class_Start),
-            //     class_End: formatTime(subjectData.class_End),
-            //     class_Section: subjectData.class_Section,
-            //     room: subjectData.room,
-            // };
 
             connection.query('UPDATE schedule SET ? WHERE id = ?', [subjectData, id], (err, result) => {
                 connection.release();
@@ -843,6 +812,32 @@ app.post('/login', (req, res) => {
             });
         });
     });
+
+    app.post('/check_roster_pin', (req, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).send('Internal server error');
+                return;
+            }
+
+            console.log(`SELECT Roster PIN [connectionID=${connection.threadId}]`);
+            const params = req.body;
+
+            connection.query('SELECT * FROM roster_pin WHERE pin=? AND roster_date=? AND roster_id=?', [params.pin,params.roster_date,params.roster_id], (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    res.status(500).send('Error checking check_roster_pin');
+                    return;
+                }
+
+                res.send(result);
+            });
+        });
+    });
+
     app.post('/roster_pin_alerts_per_id/:id', (req, res) => {
         const id = req.params.id;
 
@@ -898,6 +893,36 @@ app.post('/login', (req, res) => {
         });
     });
 
+    
+    app.post('/update_roster_pin_alerts_attendance_student', (req, res) => {
+
+        const params = req.body;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET update_roster_pin_alerts_attendance [connectionID=${connection.threadId}]`);
+
+            connection.query('UPDATE roster_pin_alerts SET ? WHERE student_id=? AND roster_pin_id=?', [params,params.student_id,params.roster_pin_id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error update_roster_pin_alerts_attendance');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Attendance PIN alerts with id ${id} not found`);
+                }
+
+                return res.status(201).json(`{ message: Attendance has been updated. }`);
+            });
+        });
+    });
+
+
     app.post('/roster_pin_alerts_per_section/:id', (req, res) => {
         const id = req.params.id;
 
@@ -924,6 +949,33 @@ app.post('/login', (req, res) => {
             });
         });
     });
+
+    app.post('/roster_pin_alerts_per_roster_student/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET roster_pin_alerts_per_section [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM `v_rostered_pin_alerts_student_list` WHERE alert_id IN (SELECT MAX(u.alert_id) as alert_id FROM v_rostered_pin_alerts_student_list u GROUP BY roster_id,student_id ) AND student_id=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Roster PIN alerts Student List with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    }); 
 
     app.post('/roster_pin_per_teacher/:id', (req, res) => {
         const id = req.params.id;
@@ -1033,6 +1085,60 @@ app.post('/login', (req, res) => {
         });
     });
 
+    app.post('/notification_alerts_for_students/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET notification_alerts_for_students [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=? ORDER BY alert_id desc', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error notification_alerts_for_students');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Notification Per Student with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/update_read_notification_alerts/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET notification_alerts_for_students [connectionID=${connection.threadId}]`);
+
+            connection.query('UPDATE roster_pin_alerts SET is_read=1 WHERE id=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error update roster_pin_alerts');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Update Notification Read Status with id ${id} not found`);
+                }
+
+                return res.status(201).json(`{ message: Update Notification has been read. }`);
+            });
+        });
+    });
+
     app.post('/add_roster_pin_alerts', (req, res) => {
         pool.getConnection((err, connection) => {
             if (err) {
@@ -1049,14 +1155,41 @@ app.post('/login', (req, res) => {
 
                 if (err) {
                     console.error('Error executing MySQL query: ', err);
-                    res.status(500).send('Error adding teacher');
-                    return;
+                    return res.status(500).send('Error adding teacher');
                 }
 
-                res.status(201).json(`{ message: Roster Pin Alerts has been added. }`);
+                return res.status(201).json(`{ message: Roster Pin Alerts has been added. }`);
             });
         });
     });
+
+// STUDENT MODULE
+app.post('/roster_schedule_per_student/:id', (req, res) => {
+    const id = req.params.id;
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            return res.status(500).send('Internal server error');
+        }
+
+        console.log(`GET v_rostered_schedule_per_student [connectionID=${connection.threadId}]`);
+
+        connection.query('SELECT * FROM v_rostered_schedule_per_student WHERE user_id=?', [id], (err, result) => {
+            connection.release();
+            if (err) {
+                console.error('Error executing MySQL query: ', err);
+                return res.status(500).json('Error deleting teacher');
+            }
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json(`v_rostered_schedule_per_student with id ${id} not found`);
+            }
+
+            return res.send(result);
+        });
+    });
+});
 
 //-------------- Upload Images API ------------------//
 

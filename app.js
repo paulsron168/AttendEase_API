@@ -59,6 +59,106 @@ app.post('/login', (req, res) => {
 });
 
 
+app.post('/my_account/:id', (req, res) => {
+    const id = req.params.id;
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            res.status(500).json('Internal server error');
+            return;
+        }
+
+        console.log(`Get My Account Data [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT * FROM users WHERE id = ?', [id], (err, result) => {
+            connection.release();
+            
+            if (err) {
+                return res.status(404).json(`User with id ${id} not found`);
+            }
+
+            return res.send(result);
+        });
+    });
+});
+
+app.post('/check_password/:id', (req, res) => {
+    const id = req.params.id;
+    const params = req.body;
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            res.status(500).json('Internal server error');
+            return;
+        }
+
+        console.log(`Check User Password is Correct [connectionID=${connection.threadId}]`)
+
+        connection.query('SELECT * FROM users WHERE id = ? and password = ?', [id,params.password], (err, result) => {
+            connection.release();
+            
+            if (err) {
+                return res.status(404).json(`User with id ${id} not found`);
+            }
+
+            return res.send(result);
+        });
+    });
+});
+
+
+app.post('/update_password/:id', (req, res) => {
+    const id = req.params.id;
+    const params = req.body;
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            res.status(500).json('Internal server error');
+            return;
+        }
+
+        console.log(`UPDATE User Password  [connectionID=${connection.threadId}]`)
+
+        connection.query('UPDATE users SET ? WHERE id = ?', [params,id], (err, result) => {
+            connection.release();
+            
+            if (err) {
+                return res.status(404).json(`User with id ${id} not found`);
+            }
+
+            return res.status(200).json(`Updated Password using user id ${id}`);
+        });
+    });
+});
+
+app.post('/update_myaccount/:id', (req, res) => {
+    const id = req.params.id;
+    const params = req.body;
+
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error getting MySQL connection: ', err);
+            res.status(500).json('Internal server error');
+            return;
+        }
+
+        console.log(`UPDATE User Account  [connectionID=${connection.threadId}]`)
+
+        connection.query('UPDATE users SET ? WHERE id = ?', [params,id], (err, result) => {
+            connection.release();
+            
+            if (err) {
+                return res.status(404).json(`User with id ${id} not found`);
+            }
+
+            return res.status(200).json(`Updated Account using user id ${id}`);
+        });
+    });
+});
+
 
 //=================== Teacher API =====================//
 
@@ -813,6 +913,24 @@ app.post('/login', (req, res) => {
         });
     });
 
+    // Get All Schedule for ROSTER
+    app.get('/get_latest_roster_pin', (_, res) => {
+        pool.getConnection((err, connection) => {
+            if (err) throw err;
+            console.log(`get schedule for roster [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM roster_pin GROUP BY roster_id ORDER BY id DESC', (err, rows) => {
+                connection.release(); // return the connection to the pool
+
+                if (!err) {
+                    res.send(rows);
+                } else {
+                    res.status(500).send('Error fetching class v_schedule_for_roster');
+                }
+            });
+        });
+    });
+
     app.post('/check_roster_pin', (req, res) => {
         pool.getConnection((err, connection) => {
             if (err) {
@@ -1096,7 +1214,7 @@ app.post('/login', (req, res) => {
 
             console.log(`GET notification_alerts_for_students [connectionID=${connection.threadId}]`);
 
-            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=? ORDER BY alert_id desc', [id], (err, result) => {
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=? AND is_read=0 ORDER BY alert_id desc', [id], (err, result) => {
                 connection.release();
                 if (err) {
                     console.error('Error executing MySQL query: ', err);
@@ -1163,33 +1281,57 @@ app.post('/login', (req, res) => {
         });
     });
 
-// STUDENT MODULE
-app.post('/roster_schedule_per_student/:id', (req, res) => {
-    const id = req.params.id;
-
-    pool.getConnection((err, connection) => {
-        if (err) {
-            console.error('Error getting MySQL connection: ', err);
-            return res.status(500).send('Internal server error');
-        }
-
-        console.log(`GET v_rostered_schedule_per_student [connectionID=${connection.threadId}]`);
-
-        connection.query('SELECT * FROM v_rostered_schedule_per_student WHERE user_id=?', [id], (err, result) => {
-            connection.release();
+    app.post('/add_response_students_alerts', (req, res) => {
+        pool.getConnection((err, connection) => {
             if (err) {
-                console.error('Error executing MySQL query: ', err);
-                return res.status(500).json('Error deleting teacher');
+                console.error('Error getting MySQL connection: ', err);
+                res.status(500).send('Internal server error');
+                return;
             }
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json(`v_rostered_schedule_per_student with id ${id} not found`);
-            }
+            console.log(`Add Response from Students [connectionID=${connection.threadId}]`);
+            const params = req.body;
 
-            return res.send(result);
+            connection.query('INSERT INTO response_students_alerts SET ?', params, (err, result) => {
+                connection.release();
+
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).send('Error adding teacher');
+                }
+
+                return res.status(201).json(`{ message: Response From Students has been added. }`);
+            });
         });
     });
-});
+
+    // STUDENT MODULE
+    app.post('/roster_schedule_per_student/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET v_rostered_schedule_per_student [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_schedule_per_student WHERE user_id=? AND roster_id is not null', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`v_rostered_schedule_per_student with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
 
 //-------------- Upload Images API ------------------//
 

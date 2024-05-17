@@ -1203,6 +1203,88 @@ app.post('/update_myaccount/:id', (req, res) => {
         });
     });
 
+    app.post('/students_per_student/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET students_per_student [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Students Per Student with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/notification_alerts_for_teachers/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET notification_alerts_for_teachers [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_response_notif_for_teacher WHERE teacher_id=? AND is_read=0 ORDER BY id desc', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error notification_alerts_for_teachers');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Notification Per Teacher with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/update_read_notification_teacher_alerts/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET notification_alerts_for_teachers [connectionID=${connection.threadId}]`);
+
+            connection.query('UPDATE response_students_alerts SET is_read=1 WHERE id=?', [id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error update notification_alerts_for_teachers');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Update Notification Read Status with id ${id} not found`);
+                }
+
+                return res.status(201).json(`{ message: Update Notification has been read. }`);
+            });
+        });
+    });
+
+
     app.post('/notification_alerts_for_students/:id', (req, res) => {
         const id = req.params.id;
 

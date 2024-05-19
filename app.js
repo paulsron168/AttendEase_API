@@ -1214,7 +1214,7 @@ app.post('/update_myaccount/:id', (req, res) => {
 
             console.log(`GET students_per_student [connectionID=${connection.threadId}]`);
 
-            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=?', [id], (err, result) => {
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE student_id=? ORDER BY alert_id DESC', [id], (err, result) => {
                 connection.release();
                 if (err) {
                     console.error('Error executing MySQL query: ', err);
@@ -1223,6 +1223,33 @@ app.post('/update_myaccount/:id', (req, res) => {
 
                 if (result.affectedRows === 0) {
                     return res.status(404).json(`Students Per Student with id ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+    app.post('/students_attendance/:id', (req, res) => {
+        const id = req.params.id;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET students_attendance [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list ORDER BY alert_id DESC', (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error students_attendance');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Students Attendance with id ${id} not found`);
                 }
 
                 return res.send(result);

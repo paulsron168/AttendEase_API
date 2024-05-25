@@ -1094,6 +1094,35 @@ app.post('/update_myaccount/:id', (req, res) => {
         });
     });
 
+    app.post('/roster_pin_alerts_per_section_subject/:id', (req, res) => {
+        const id = req.params.id;
+        const params = req.body;
+
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error('Error getting MySQL connection: ', err);
+                return res.status(500).send('Internal server error');
+            }
+
+            console.log(`GET Roster PIN alerts with DATE, SECTION AND SUBJECT FILTERED [connectionID=${connection.threadId}]`);
+
+            connection.query('SELECT * FROM v_rostered_pin_alerts_student_list WHERE roster_date BETWEEN ? AND ? AND subject_id = ? AND section_id = ?', [params.startmonth,params.endmonth,params.subject_id,params.section_id], (err, result) => {
+                connection.release();
+                if (err) {
+                    console.error('Error executing MySQL query: ', err);
+                    return res.status(500).json('Error deleting teacher');
+                }
+
+                if (result.affectedRows === 0) {
+                    return res.status(404).json(`Roster PIN alerts with DATE, SECTION AND SUBJECT FILTERED ${id} not found`);
+                }
+
+                return res.send(result);
+            });
+        });
+    });
+
+
     app.post('/roster_pin_alerts_per_roster_student/:id', (req, res) => {
         const id = req.params.id;
 
